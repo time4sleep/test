@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能搜索界面</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            font-size: 36px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .search-container {
+            margin: 30px 0;
+            position: relative;
+        }
+
+        .search-box-wrapper {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .search-box {
+            flex: 1;
+            padding: 15px 20px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 50px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .search-box:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .search-btn {
+            padding: 15px 40px;
+            font-size: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .search-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .search-btn:active {
+            transform: translateY(0);
+        }
+
+        .search-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+            font-size: 16px;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        .result-container {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            display: none;
+        }
+
+        .result-container.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-query {
+            font-size: 18px;
+            color: #667eea;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .result-answer {
+            font-size: 16px;
+            line-height: 1.8;
+            color: #333;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .error-message {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fee;
+            border-left: 4px solid #f44;
+            border-radius: 5px;
+            color: #c33;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .proxy-status {
+            margin-top: 20px;
+            padding: 10px;
+            background: #e8f5e9;
+            border-radius: 5px;
+            font-size: 14px;
+            color: #2e7d32;
+            text-align: center;
+        }
+
+        .proxy-status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .search-box-wrapper {
+                flex-direction: column;
+            }
+
+            .search-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 智能搜索界面</h1>
+        
+        <div class="search-container">
+            <div class="search-box-wrapper">
+                <input 
+                    type="text" 
+                    class="search-box" 
+                    id="searchInput"
+                    placeholder="请输入您要搜索的内容..."
+                    autocomplete="off"
+                >
+                <button class="search-btn" id="searchBtn">搜索</button>
+            </div>
+            
+            <div class="proxy-status" id="proxyStatus">
+                正在检查代理服务器状态...
+            </div>
+        </div>
+
+        <div class="loading" id="loading" style="display: none;"></div>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="result-container" id="resultContainer">
+            <div class="result-query" id="resultQuery"></div>
+            <div class="result-answer" id="resultAnswer"></div>
+        </div>
+    </div>
+
+    <script>
+        // 代理服务器地址（根据实际情况修改）
+        const PROXY_URL = 'http://localhost:5000';
+        
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const loading = document.getElementById('loading');
+        const errorMessage = document.getElementById('errorMessage');
+        const resultContainer = document.getElementById('resultContainer');
+        const resultQuery = document.getElementById('resultQuery');
+        const resultAnswer = document.getElementById('resultAnswer');
+        const proxyStatus = document.getElementById('proxyStatus');
+
+        // 检查代理服务器状态
+        async function checkProxyStatus() {
+            try {
+                const response = await fetch(`${PROXY_URL}/api/health`);
+                if (response.ok) {
+                    proxyStatus.textContent = '✅ 代理服务器连接正常';
+                    proxyStatus.className = 'proxy-status';
+                } else {
+                    throw new Error('服务器响应异常');
+                }
+            } catch (error) {
+                proxyStatus.textContent = '❌ 无法连接到代理服务器，请确保代理服务器已启动 (python proxy_server.py)';
+                proxyStatus.className = 'proxy-status error';
+            }
+        }
+
+        // 执行搜索
+        async function performSearch() {
+            const query = searchInput.value.trim();
+            
+            if (!query) {
+                showError('请输入搜索内容');
+                return;
+            }
+
+            // 隐藏之前的结果和错误
+            hideError();
+            hideResult();
+            
+            // 显示加载状态
+            showLoading();
+            searchBtn.disabled = true;
+
+            try {
+                const response = await fetch(`${PROXY_URL}/api/search`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        query: query
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // 显示结果
+                    resultQuery.textContent = `问题: ${data.data.query}`;
+                    resultAnswer.textContent = data.data.answer;
+                    showResult();
+                } else {
+                    showError(data.error || '搜索失败，请稍后重试');
+                }
+            } catch (error) {
+                showError(`网络错误: ${error.message}。请确保代理服务器正在运行。`);
+            } finally {
+                hideLoading();
+                searchBtn.disabled = false;
+            }
+        }
+
+        // 显示/隐藏加载状态
+        function showLoading() {
+            loading.style.display = 'block';
+        }
+
+        function hideLoading() {
+            loading.style.display = 'none';
+        }
+
+        // 显示/隐藏结果
+        function showResult() {
+            resultContainer.classList.add('show');
+        }
+
+        function hideResult() {
+            resultContainer.classList.remove('show');
+        }
+
+        // 显示/隐藏错误
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('show');
+        }
+
+        function hideError() {
+            errorMessage.classList.remove('show');
+        }
+
+        // 事件监听
+        searchBtn.addEventListener('click', performSearch);
+        
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+
+        // 页面加载时检查代理服务器状态
+        checkProxyStatus();
+        
+        // 每30秒检查一次代理服务器状态
+        setInterval(checkProxyStatus, 30000);
+    </script>
+</body>
+</html>
