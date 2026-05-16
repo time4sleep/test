@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 智能决策与协同调控引擎</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #010a15; font-family: 'Microsoft YaHei', sans-serif; color: #fff; overflow: hidden; }
+        .header { height: 60px; background: linear-gradient(to right, rgba(0, 34, 62, 0.9), rgba(0, 89, 136, 0.9)); border-bottom: 2px solid #00f0ff; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; box-shadow: 0 5px 15px rgba(0, 240, 255, 0.2); }
+        .header-title { font-size: 24px; font-weight: bold; color: #fff; text-shadow: 0 0 10px #00f0ff; }
+        .nav-btn { background: rgba(0, 240, 255, 0.2); border: 1px solid #00f0ff; color: #fff; padding: 8px 20px; border-radius: 4px; cursor: pointer; text-decoration: none; font-size: 14px;}
+        .nav-btn:hover { background: #00f0ff; color: #000; }
+        .main-content { display: flex; width: 100%; height: calc(100% - 60px); padding: 15px; box-sizing: border-box; gap: 15px; }
+
+        .panel { background: rgba(5, 20, 35, 0.8); border: 1px solid #007bb5; border-radius: 8px; padding: 15px; display: flex; flex-direction: column; }
+        .left-panel { width: 25%; gap: 15px; }
+        .center-panel { width: 40%; gap: 15px; background: rgba(0, 34, 62, 0.6); border: 1px solid #00f0ff; box-shadow: 0 0 15px rgba(0, 240, 255, 0.1) inset;}
+        .right-panel { width: 35%; gap: 15px; }
+        
+        .section-title { font-size: 16px; color: #00f0ff; border-left: 4px solid #00f0ff; padding-left: 10px; margin-bottom: 10px; font-weight: bold; }
+        .alert-box { background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; padding: 15px; border-radius: 6px; }
+        .alert-title { color: #ef4444; font-size: 18px; font-weight: bold; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;}
+        .alert-title::before { content: '⚠️'; }
+        
+        .strategy-card { background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.3); padding: 15px; border-radius: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
+        .strategy-info h4 { margin: 0 0 5px 0; color: #a0d8ef; font-size: 16px; }
+        .strategy-info p { margin: 0; color: #fff; font-size: 18px; font-weight: bold; }
+        
+        .action-area { display: flex; gap: 15px; margin-top: 20px; }
+        .btn-simulate { flex: 1; background: linear-gradient(180deg, #007bb5, #004466); border: 1px solid #00f0ff; color: #fff; padding: 15px; font-size: 18px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);}
+        .btn-simulate:hover { background: #00f0ff; color: #000; }
+        .btn-execute { flex: 1; background: linear-gradient(180deg, #ef4444, #991b1b); border: 1px solid #ffaa00; color: #fff; padding: 15px; font-size: 18px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: all 0.3s; opacity: 0.5; pointer-events: none;}
+        .btn-execute.ready { opacity: 1; pointer-events: auto; box-shadow: 0 0 15px rgba(239, 68, 68, 0.6); }
+        .btn-execute.ready:hover { background: #ef4444; }
+
+        #simulation-chart { width: 100%; height: 280px; }
+        .log-box { flex: 1; background: #010a15; border: 1px solid #1e293b; border-radius: 4px; padding: 10px; font-family: monospace; font-size: 12px; color: #10b981; overflow-y: auto; line-height: 1.6;}
+        .log-time { color: #94a3b8; margin-right: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="header-title">AI 智能决策与协同调控系统</div>
+        <a href="index.html" class="nav-btn">返回数字孪生主页</a>
+    </div>
+
+    <div class="main-content">
+        <div class="panel left-panel">
+            <div class="section-title">全厂多目标耦合预判</div>
+            <div class="alert-box">
+                <div class="alert-title" id="warn-task">加载中...</div>
+                <div style="color: #ccc; font-size: 14px; line-height: 1.6;" id="warn-details">
+                    </div>
+            </div>
+            
+            <div class="section-title" style="margin-top: 20px;">系统引擎状态</div>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <div style="background: rgba(16, 185, 129, 0.1); padding: 10px; border-left: 4px solid #10b981; color:#fff; font-size:14px;">1:1 数字孪生场景：<span id="status-twin" style="color:#10b981; float:right;">-</span></div>
+                <div style="background: rgba(16, 185, 129, 0.1); padding: 10px; border-left: 4px solid #10b981; color:#fff; font-size:14px;">AI 决策分析引擎：<span id="status-engine" style="color:#10b981; float:right;">-</span></div>
+            </div>
+        </div>
+
+        <div class="panel center-panel">
+            <div class="section-title" style="font-size: 18px;">全局最优协同调控方案</div>
+            <p style="color:#94a3b8; font-size: 13px; margin-top:0;">以出水达标与能耗药耗最低为综合目标，生成以下闭环策略：</p>
+            
+            <div id="strategies-container"></div>
+
+            <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.5); padding: 10px; border-radius: 6px; margin-top: 10px; display: flex; justify-content: space-around; text-align: center;">
+                <div>
+                    <div style="font-size: 12px; color: #94a3b8;">本次策略综合降耗</div>
+                    <div style="font-size: 18px; color: #10b981; font-weight: bold;" id="metric-energy">-</div>
+                </div>
+                <div>
+                    <div style="font-size: 12px; color: #94a3b8;">折合碳减排 (当量)</div>
+                    <div style="font-size: 18px; color: #10b981; font-weight: bold;" id="metric-carbon">-</div>
+                </div>
+            </div>
+
+            <div class="action-area">
+                <button class="btn-simulate" id="btn-sim" onclick="runSimulation()">1:1 孪生场景仿真推演</button>
+                <button class="btn-execute" id="btn-exec" onclick="executePlan()">授权：一键下发执行</button>
+            </div>
+            <p id="sim-status" style="text-align: center; color: #ffaa00; font-size: 14px; margin-top: 15px; height: 20px;">等待仿真风险校验...</p>
+        </div>
+
+        <div class="panel right-panel">
+            <div class="section-title">调控策略仿真效果 (COD走势)</div>
+            <div id="simulation-chart"></div>
+
+            <div class="section-title" style="margin-top: 10px;">智能闭环复盘日志</div>
+            <div class="log-box" id="system-log">
+                <div style="color:#94a3b8;">系统已初始化...等待拉取AI引擎方案。</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 定义全局变量，供图表和仿真点击事件使用
+        let myChart = null;
+        let cachedSimData = null; 
+        let chartOption = null;
+
+        // 1. 核心数据拉取函数
+        function fetchAiStrategy() {
+            fetch('ai-strategy.json')
+                .then(response => {
+                    if (!response.ok) { throw new Error('找不到 ai-strategy.json 文件'); }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("成功读取外部 AI 寻优决策数据：", data);
+                    // 暂存仿真数据，点击按钮时再画绿线
+                    cachedSimData = data.simulation;
+                    
+                    // 渲染页面各组件
+                    renderWarning(data.warning);
+                    renderStatus(data.systemStatus);
+                    renderStrategies(data.strategies);
+                    renderMetrics(data.metrics);
+                    initChart(data.simulation);
+                    
+                    addLog("成功接入后端多目标 AI 寻优解算方案层。", "#10b981");
+                })
+                .catch(error => {
+                    console.error("加载AI数据失败:", error);
+                    addLog("错误：未检测到后端 API 接口数据流，请确保数据文件完整性。", "#ef4444");
+                });
+        }
+
+        // 2. 各种局部的渲染逻辑
+        function renderWarning(w) {
+            document.getElementById('warn-task').innerText = w.task;
+            document.getElementById('warn-details').innerHTML = `
+                <strong>触发条件：</strong>${w.condition}<br>
+                <strong>风险节点：</strong>${w.node}<br>
+                <strong>预判数值：</strong><span style="color:#ef4444; font-weight:bold;">${w.value}</span> (限值: ${w.limit})<br>
+                <strong>当前工况：</strong>${w.status}
+            `;
+        }
+
+        function renderStatus(s) {
+            document.getElementById('status-twin').innerText = s.twin;
+            document.getElementById('status-engine').innerText = s.engine;
+        }
+
+        function renderStrategies(list) {
+            const container = document.getElementById('strategies-container');
+            container.innerHTML = '';
+            list.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'strategy-card';
+                card.innerHTML = `
+                    <div class="strategy-info">
+                        <h4>${item.type}</h4>
+                        <p>${item.detail} <span style="font-size:12px; color:#10b981;">(${item.benefit})</span></p>
+                    </div>
+                    <span style="color:#a0d8ef; border:1px solid #a0d8ef; padding:2px 6px; border-radius:4px; font-size:12px;">${item.mode}</span>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderMetrics(m) {
+            document.getElementById('metric-energy').innerText = m.energySaving;
+            document.getElementById('metric-carbon').innerText = m.carbonReduction;
+        }
+
+        // 3. 图表初始化
+        function initChart(sim) {
+            const chartDom = document.getElementById('simulation-chart');
+            myChart = echarts.init(chartDom);
+            
+            chartOption = {
+                grid: { left: '8%', right: '5%', bottom: '10%', top: '15%' },
+                tooltip: { trigger: 'axis' },
+                legend: { data: ['原始预测 (越界)', '仿真推演效果'], textStyle: { color: '#fff' } },
+                xAxis: { type: 'category', data: sim.times, axisLabel: { color: '#94a3b8' } },
+                yAxis: { type: 'value', max: 60, splitLine: { lineStyle: { color: 'rgba(0, 123, 181, 0.2)' } }, axisLabel: { color: '#94a3b8' } },
+                series: [
+                    {
+                        name: '原始预测 (越界)', type: 'line', data: sim.originalData,
+                        itemStyle: { color: '#ef4444' }, lineStyle: { width: 3, type: 'dotted' }, smooth: true,
+                        markLine: { silent: true, lineStyle: { color: '#ef4444', type: 'dashed' }, data: [{ yAxis: sim.threshold }] }
+                    }
+                ]
+            };
+            myChart.setOption(chartOption);
+            window.addEventListener('resize', () => myChart.resize());
+        }
+
+        // 4. 互动按钮：仿真推演
+        function runSimulation() {
+            const btnSim = document.getElementById('btn-sim');
+            const btnExec = document.getElementById('btn-exec');
+            const statusText = document.getElementById('sim-status');
+
+            btnSim.innerText = "孪生场景仿真计算中...";
+            btnSim.style.pointerEvents = 'none';
+            btnSim.style.opacity = '0.7';
+            statusText.innerText = "正在推演调节策略...规避盲目调节风险...";
+            statusText.style.color = "#00f0ff";
+            
+            addLog("触发 1:1 虚拟厂区仿真推演，注入工艺调节参数矩阵...");
+
+            setTimeout(() => {
+                // 读取刚才动态加载的仿真安全数据
+                chartOption.series.push({
+                    name: '仿真推演效果', type: 'line', data: cachedSimData.simulatedData,
+                    itemStyle: { color: '#10b981' }, lineStyle: { width: 4 }, smooth: true,
+                    areaStyle: { color: 'rgba(16, 185, 129, 0.2)' }
+                });
+                myChart.setOption(chartOption, true); 
+
+                statusText.innerText = "仿真校验通过！可规避工艺波动，安全下发。";
+                statusText.style.color = "#10b981";
+                btnSim.innerText = "仿真完成";
+                
+                btnExec.classList.add('ready');
+                
+                addLog(`仿真数据匹配成功。出水预测COD最大降至 45.2 mg/L，解除超标越界风险。`);
+                addLog("等待人工核准与网关控制下发指令...", "#ffaa00");
+            }, 2000);
+        }
+
+        // 5. 互动按钮：下发执行
+        function executePlan() {
+            const btnExec = document.getElementById('btn-exec');
+            btnExec.innerText = "指令已下发物理设备";
+            btnExec.style.background = "#10b981"; 
+            btnExec.style.borderColor = "#10b981";
+            btnExec.style.boxShadow = "none";
+            btnExec.style.pointerEvents = 'none';
+
+            addLog("操作员复核通过，调控指令全权打包下发！", "#fff");
+            
+            setTimeout(() => addLog("PLC控制总线响应：1# 鼓风机频率调节阀已锁定。"), 1000);
+            setTimeout(() => addLog("加药变频泵、排泥工艺执行机构已到达预设开度。"), 2000);
+            setTimeout(() => {
+                addLog("厂区工艺运行效果实时复盘监控中...");
+                addLog("数据全量回传驱动：模型与决策算法正在自适应迭代优化...", "#00f0ff");
+            }, 3500);
+        }
+
+        // 辅助：写日志
+        function addLog(msg, color = '#10b981') {
+            const logBox = document.getElementById('system-log');
+            const now = new Date();
+            const timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0') + ':' + now.getSeconds().toString().padStart(2,'0');
+            logBox.innerHTML += `<br><span class="log-time">[${timeStr}]</span> <span style="color:${color}">${msg}</span>`;
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        // 页面启动，立刻调取外部数据
+        fetchAiStrategy();
+    </script>
+</body>
+</html>

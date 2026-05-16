@@ -1,0 +1,44 @@
+{
+    "warning": {
+      "task": "预测超标阻断任务",
+      "condition": "深度学习模型输出预判",
+      "node": "未来 20:00 生化段 COD",
+      "value": "52.4 mg/L",
+      "limit": "50 mg/L",
+      "status": "运行区间即将越界"
+    },
+    "systemStatus": {
+      "twin": "在线联机",
+      "engine": "就绪"
+    },
+    "strategies": [
+      {
+        "type": "设备负荷调度 (精准曝气)",
+        "detail": "1# 鼓风机变频下调至 38 Hz",
+        "benefit": "预计节电 12%",
+        "mode": "自动下发"
+      },
+      {
+        "type": "药剂精准投加 (除磷脱氮)",
+        "detail": "碳源投加泵流量微调 +5%",
+        "benefit": "规避过量浪费",
+        "mode": "自动下发"
+      },
+      {
+        "type": "污泥龄管控 (排泥与回流)",
+        "detail": "排泥阀开度调整至 45%，提升排泥量",
+        "benefit": "稳定污泥负荷",
+        "mode": "自动下发"
+      }
+    ],
+    "metrics": {
+      "energySaving": "11.5 %",
+      "carbonReduction": "42.8 kg/h"
+    },
+    "simulation": {
+      "times": ["17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"],
+      "originalData": [46.5, 48.2, 49.8, 52.4, 54.1, 51.0, 48.5],
+      "simulatedData": [46.5, 47.1, 46.8, 45.2, 43.1, 44.0, 42.5],
+      "threshold": 50
+    }
+  }
