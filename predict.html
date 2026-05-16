@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 水质预测与预警分析</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        /* 基础科技感主题 */
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #010a15; font-family: 'Microsoft YaHei', sans-serif; color: #fff; overflow: hidden; }
+        
+        .header { height: 60px; background: linear-gradient(to right, rgba(0, 34, 62, 0.9), rgba(0, 89, 136, 0.9)); border-bottom: 2px solid #00f0ff; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; box-shadow: 0 5px 15px rgba(0, 240, 255, 0.2); }
+        .header-title { font-size: 24px; font-weight: bold; color: #fff; text-shadow: 0 0 10px #00f0ff; }
+        .nav-btn { background: rgba(0, 240, 255, 0.2); border: 1px solid #00f0ff; color: #fff; padding: 8px 20px; border-radius: 4px; cursor: pointer; text-decoration: none; font-size: 14px;}
+        .nav-btn:hover { background: #00f0ff; color: #000; }
+
+        .main-content { display: flex; width: 100%; height: calc(100% - 60px); padding: 15px; box-sizing: border-box; gap: 15px; }
+
+        /* 两栏式布局 */
+        .panel { background: rgba(5, 20, 35, 0.8); border: 1px solid #007bb5; border-radius: 8px; padding: 15px; display: flex; flex-direction: column; }
+        .left-panel { width: 30%; gap: 15px; }
+        .right-panel { width: 70%; gap: 15px; }
+        
+        .section-title { font-size: 16px; color: #00f0ff; border-left: 4px solid #00f0ff; padding-left: 10px; margin-bottom: 10px; font-weight: bold; }
+
+        /* ================= 修复后的表格样式 ================= */
+        .table-container { flex: 1; overflow-y: auto; border: 1px solid rgba(0, 123, 181, 0.3); border-radius: 4px; position: relative;}
+        table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; }
+        /* 核心修复：把表头背景换成了不透明的深蓝色，并加了底部边框 */
+        th { color: #00f0ff; padding: 10px; background: #051a2e; position: sticky; top: 0; z-index: 2; box-shadow: 0 1px 0 #007bb5;}
+        td { color: #ccc; padding: 10px; border-bottom: 1px solid rgba(0, 123, 181, 0.3); }
+        .alert-text { color: #ef4444; font-weight: bold; animation: blink 1.5s infinite; }
+        @keyframes blink { 50% { opacity: 0.5; } }
+
+        /* 顶部时段切换按钮 */
+        .btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
+        .time-btn { background: transparent; border: 1px solid #007bb5; color: #94a3b8; padding: 5px 15px; border-radius: 15px; cursor: pointer; transition: all 0.3s; outline: none;}
+        .time-btn.active { background: #00f0ff; color: #000; border-color: #00f0ff; font-weight: bold; }
+
+        /* 图表容器 */
+        #accuracy-chart { width: 100%; height: 220px; }
+        #trend-chart { width: 100%; height: 350px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="header-title">AI 水质预测与智能预警平台</div>
+        <a href="index.html" class="nav-btn">返回数字孪生主页</a>
+    </div>
+
+    <div class="main-content">
+        
+        <div class="panel left-panel">
+            <div class="section-title">单指标预测准确率评估</div>
+            <div id="accuracy-chart"></div>
+            
+            <div class="section-title" style="margin-top: 10px;">预测超标异常清单</div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr><th>预警时间</th><th>异常指标</th><th>预测数值</th></tr>
+                    </thead>
+                    <tbody id="warning-body">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="panel right-panel">
+            <div class="section-title" style="display: flex; justify-content: space-between;">
+                <span>预测数据趋势图 (生化段 COD)</span>
+                <span style="font-size: 12px; font-weight: normal; color: #94a3b8;">红虚线为国标排放限值 (50 mg/L)</span>
+            </div>
+            <div id="trend-chart"></div>
+
+            <div class="section-title" style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+                <span>未来时段预测明细</span>
+                <div class="btn-group">
+                    <button class="time-btn" onclick="switchTime(4)">4小时</button>
+                    <button class="time-btn active" onclick="switchTime(24)">24小时</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr><th>预测时间</th><th>预测 COD (mg/L)</th><th>预测氨氮 (mg/L)</th><th>预测总氮 (mg/L)</th><th>模型状态</th></tr>
+                    </thead>
+                    <tbody id="predict-body">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. 核心数据源
+        // ==========================================
+        const predictData = [
+            { time: "17:00", cod: 46.5, nh3n: 2.1, tn: 14.8 },
+            { time: "18:00", cod: 48.2, nh3n: 2.2, tn: 15.1 },
+            { time: "19:00", cod: 49.8, nh3n: 2.3, tn: 15.3 },
+            { time: "20:00", cod: 52.4, nh3n: 2.5, tn: 15.8 }, // 超标点
+            { time: "21:00", cod: 54.1, nh3n: 2.6, tn: 16.2 }, // 超标点
+            { time: "22:00", cod: 51.0, nh3n: 2.4, tn: 15.5 }, // 超标点
+            { time: "23:00", cod: 48.5, nh3n: 2.1, tn: 14.9 },
+            { time: "00:00", cod: 45.0, nh3n: 1.9, tn: 14.2 },
+            { time: "01:00", cod: 42.1, nh3n: 1.8, tn: 13.5 }
+        ];
+
+        const thresholdCOD = 50;
+
+        // ==========================================
+        // 2. 新增功能：渲染预测表格的独立函数
+        // ==========================================
+        function renderPredictTable(hours) {
+            const predictBody = document.getElementById('predict-body');
+            predictBody.innerHTML = ''; // 每次渲染前清空旧内容
+
+            // 如果选择了 4 小时，只截取数组的前 4 个元素
+            const dataToShow = hours === 4 ? predictData.slice(0, 4) : predictData;
+
+            dataToShow.forEach(item => {
+                const isAlert = item.cod > thresholdCOD;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>未来 ${item.time}</td>
+                    <td class="${isAlert ? 'alert-text' : ''}" style="color:${isAlert ? '' : '#00f0ff'}">${item.cod}</td>
+                    <td>${item.nh3n}</td>
+                    <td>${item.tn}</td>
+                    <td><span style="color:#0f0;">推理完成</span></td>
+                `;
+                predictBody.appendChild(tr);
+            });
+        }
+
+        // ==========================================
+        // 3. 新增功能：处理按钮点击切换的函数
+        // ==========================================
+        function switchTime(hours) {
+            // 首先，改变按钮的外观（去掉所有 active，只给被点击的加 active）
+            const buttons = document.querySelectorAll('.time-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            // 利用 event 找到被点击的按钮并添加高亮
+            event.target.classList.add('active');
+
+            // 然后，调用渲染表格的函数，告诉它我们要展示几个小时
+            renderPredictTable(hours);
+        }
+
+        // ==========================================
+        // 4. 左侧报警清单（不受切换按钮影响，展示所有异常）
+        // ==========================================
+        const warningBody = document.getElementById('warning-body');
+        predictData.forEach(item => {
+            if (item.cod > thresholdCOD) {
+                const warnTr = document.createElement('tr');
+                warnTr.innerHTML = `
+                    <td style="color:#ffaa00;">今天 ${item.time}</td>
+                    <td>COD超标</td>
+                    <td class="alert-text">${item.cod}</td>
+                `;
+                warningBody.appendChild(warnTr);
+            }
+        });
+
+        // ==========================================
+        // 5. 渲染图表 (折线图与环形图)
+        // ==========================================
+        const historyTimes = ["13:00", "14:00", "15:00", "16:00"];
+        const historyCOD = [14.41, 15.25, 14.59, 47.30]; 
+        const predictTimes = predictData.map(d => d.time);
+        const predictCOD = predictData.map(d => d.cod);
+        const fullTimes = [...historyTimes, ...predictTimes];
+        const emptyHistory = new Array(historyTimes.length - 1).fill(null);
+
+        const trendChart = echarts.init(document.getElementById('trend-chart'));
+        trendChart.setOption({
+            grid: { left: '3%', right: '5%', bottom: '5%', top: '10%', containLabel: true },
+            tooltip: { trigger: 'axis' },
+            legend: { data: ['历史实测', 'AI预测'], textStyle: { color: '#fff' } },
+            xAxis: { type: 'category', data: fullTimes, axisLabel: { color: '#94a3b8' }, axisLine: { lineStyle: { color: '#007bb5' } } },
+            yAxis: { type: 'value', max: 70, splitLine: { lineStyle: { color: 'rgba(0, 123, 181, 0.2)' } }, axisLabel: { color: '#94a3b8' } },
+            series: [
+                { name: '历史实测', type: 'line', data: [...historyCOD, ...new Array(predictTimes.length).fill(null)], itemStyle: { color: '#00f0ff' }, lineStyle: { width: 3 }, smooth: true },
+                {
+                    name: 'AI预测', type: 'line', data: [...emptyHistory, historyCOD[historyCOD.length-1], ...predictCOD], itemStyle: { color: '#ffaa00' }, lineStyle: { width: 3, type: 'dashed' }, smooth: true,
+                    markLine: { silent: true, lineStyle: { color: '#ef4444', type: 'dashed', width: 2 }, label: { formatter: '国标阈值 (50)', position: 'insideEndTop', color: '#ef4444' }, data: [{ yAxis: thresholdCOD }] }
+                }
+            ]
+        });
+
+        const accuracyChart = echarts.init(document.getElementById('accuracy-chart'));
+        accuracyChart.setOption({
+            tooltip: { trigger: 'item' },
+            legend: { top: 'bottom', textStyle: { color: '#fff' } },
+            series: [{
+                name: '模型准确率', type: 'pie', radius: ['50%', '70%'], avoidLabelOverlap: false,
+                label: { show: true, position: 'center', formatter: '79.3%\n准确度', fontSize: 18, color: '#00f0ff', fontWeight: 'bold' },
+                labelLine: { show: false },
+                data: [
+                    { value: 79.3, name: '预测准确 (<5%误差)', itemStyle: { color: '#00f0ff' } },
+                    { value: 15.0, name: '基本准确 (5-15%)', itemStyle: { color: '#ffaa00' } },
+                    { value: 5.7, name: '预测偏差 (>15%)', itemStyle: { color: '#ef4444' } }
+                ]
+            }]
+        });
+
+        window.addEventListener('resize', () => { trendChart.resize(); accuracyChart.resize(); });
+
+        // 页面刚加载时，自动渲染一次24小时的数据表格
+        renderPredictTable(24);
+    </script>
+</body>
+</html>
